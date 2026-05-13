@@ -1,1 +1,1 @@
-MCS7529 Reverse Engineering
+Pocket Calculator Chip MCS7529 Reverse Engineering
