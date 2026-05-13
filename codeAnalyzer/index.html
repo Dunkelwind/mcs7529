@@ -7,6 +7,10 @@
     <script src="instr.js"></script>
     <script src="diagram.js"></script>
     <script src="digitMask.js"></script>
+    <script src="classes.js"></script>
+    <script>
+      /// <reference path="./classes.js" />
+    </script>
     <style>
       * {
         box-sizing: border-box;
@@ -103,8 +107,8 @@
 
       /* --- Code-Listing --- */
       #code-panel {
-        width: 420px;
-        min-width: 300px;
+        width: 700px;
+        min-width: 450px;
         display: flex;
         flex-direction: column;
         border-right: 2px solid #333;
@@ -168,8 +172,10 @@
         0%, 100% { opacity: 1;   }
         50%       { opacity: 0.2; }
       }
-      #container [fill="#cc0000"]   { animation: blinken 1s infinite; }
-      #container [stroke="#cc0000"] { animation: blinken 1s infinite; }
+      #container1 [fill="#cc0000"]   { animation: blinken 1s infinite; }
+      #container1 [stroke="#cc0000"] { animation: blinken 1s infinite; }
+      #container2 [fill="#cc0000"]   { animation: blinken 1s infinite; }
+      #container2 [stroke="#cc0000"] { animation: blinken 1s infinite; }
 
       #diagram-panel {
         flex: 1;
@@ -188,12 +194,12 @@
         align-items: center;
       }
       #diagram-info #current-info { color: #4ec9b0; }
-      #container {
+      #container1, #container2 {
         flex: 1;
         overflow: auto;
         background: #fff;
       }
-      #container > div {
+      #container1 > div, #container2  > div {
         width: 1169px;
         height: 1654px;
       }
@@ -206,26 +212,27 @@
       <span class="led-label">InstrNo:</span>
     </div>
 
-    <!-- Mask-Tabelle -->
-    <div id="mask-panel">
-      <table id="mask-table">
-        <thead>
-          <tr>
-            <th>InstrNo</th>
-            <th>InstrName</th>
-            <th>Msk</th>
-            <th>S7</th><th>S11</th><th>S5</th><th>S10</th><th>S13</th><th>S6</th><th>S3</th>
-            <th>S9</th><th>S4</th><th>S2</th><th>S1</th><th>S8</th><th>S12</th><th>S14</th>
-          </tr>
-        </thead>
-        <tbody id="mask-tbody"></tbody>
-      </table>
-    </div>
+
 
     <div id="main">
 
       <!-- Code-Listing links -->
       <div id="code-panel">
+            <!-- Mask-Tabelle -->
+        <div id="mask-panel">
+          <table id="mask-table">
+            <thead>
+              <tr>
+                <th>InstrNo</th>
+                <th>InstrName</th>
+                <th>Msk</th>
+                <th>S7</th><th>S11</th><th>S5</th><th>S10</th><th>S13</th><th>S6</th><th>S3</th>
+                <th>S9</th><th>S4</th><th>S2</th><th>S1</th><th>S8</th><th>S12</th><th>S14</th>
+              </tr>
+            </thead>
+            <tbody id="mask-tbody"></tbody>
+          </table>
+        </div>
         <div id="code-header">
           <span>Label</span>
           <span>Addr</span>
@@ -258,11 +265,42 @@
       <div id="diagram-panel">
         <div id="diagram-info">
           <span>Klick auf Zeile → Decode</span>
+          <button id="step-btn" onclick="stepAusfuehren()"
+                  style="padding:2px 10px; background:#1a3a1a; color:#4ec94e;
+                        border:1px solid #4ec94e; border-radius:3px; cursor:pointer;
+                        font-family:monospace; font-size:11px;">
+            ► Step
+          </button>
           <span id="current-info"></span>
         </div>
-        <div id="container"></div>
+        <div id="container1"></div>
+        <div style="height:3px; background: linear-gradient(to right, #333, #666, #333); flex-shrink:0;"></div>
+        <div id="container2"></div>
       </div>
 
+    </div>
+
+    <!-- Debug-Eingabe Dialog (versteckt) -->
+    <div id="debug-overlay" style="display:none; position:fixed; top:0; left:0;
+        width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000;
+        align-items:center; justify-content:center;">
+      <div style="background:#1a1a2e; border:1px solid #4ec94e; border-radius:6px;
+                  padding:16px; min-width:300px;">
+        <div id="debug-titel" style="color:#4ec9b0; font-size:13px; margin-bottom:10px;"></div>
+        <div id="debug-anzeige" style="font-family:monospace; font-size:18px; letter-spacing:4px;
+            background:#111; padding:8px 12px; border-radius:4px;
+            border:1px solid #333; cursor:default; user-select:none;"></div>
+        <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
+          <button id="debug-ok" style="background:#1a3a1a; color:#4ec94e; border:1px solid #4ec94e;
+                  border-radius:3px; padding:3px 12px; cursor:pointer; font-family:monospace;">
+            OK
+          </button>
+          <button id="debug-abbrechen" style="background:#2a2a2a; color:#888; border:1px solid #555;
+                  border-radius:3px; padding:3px 12px; cursor:pointer; font-family:monospace;">
+            Abbrechen
+          </button>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -270,341 +308,6 @@
       window.mxLoadStylesheets = false
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mxgraph@4.2.2/javascript/mxClient.min.js"></script>
-
-    <script>
-
-      // ═══════════════════════════════════════════════════════════════
-      // KONSTANTEN
-      // ═══════════════════════════════════════════════════════════════
-
-      const INSTR_MIN   = 11
-      const INSTR_MAX   = 74
-
-      const BIT_COLS    = ["D12","D11","D10","D9","D8","D7","D6","D5","D4","D3","D2","D1","D0"]
-      const SRC_COLS    = ["D7","D6","D1","D0"]
-      const DEST_COLS   = ["D10","D9","D8"]
-      const S_SPALTEN   = ["S7","S11","S5","S10","S13","S6","S3","S9","S4","S2","S1","S8","S12","S14"]
-      const MSK_SPALTEN = ["Msk0","Msk1","Msk2","Msk3","Msk4","Msk5"]   // Msk6 ignorieren
-
-      const FARBE_AKTIV   = "#cc0000"
-      const FARBE_INAKTIV = "#000000"
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // LED-LEISTE aufbauen
-      // ═══════════════════════════════════════════════════════════════
-
-      const ledBar = document.getElementById("led-bar")
-      const leds = {}
-
-      for (let nr = INSTR_MIN; nr <= INSTR_MAX; nr++) {
-        const led = document.createElement("div")
-        led.className = "led"
-        led.textContent = nr
-        led.title = "InstrNo " + nr
-        ledBar.appendChild(led)
-        leds[nr] = led
-      }
-
-      function ledsAktualisieren(aktiveNummern) {
-        for (let nr = INSTR_MIN; nr <= INSTR_MAX; nr++)
-          leds[nr].classList.toggle("active", aktiveNummern.includes(nr))
-      }
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // MASK-TABELLE
-      //
-      // Für jede aktive InstrNo:
-      //   1. Welche Msk0-Msk5 sind "1"?
-      //   2. D12D11-Wert aus aktuelleBits berechnen: D12*2 + D11 → 0..3
-      //   3. In DigitMaskData filtern: Mask === MskNr UND D12D11 === Wert
-      //   4. S-Spalten anzeigen: "E" = aktiv (grün), sonst grau
-      //   5. Keine aktive Maske → Zeile grau
-      // ═══════════════════════════════════════════════════════════════
-
-      function d12d11Berechnen() {
-        // D12 = Index 0, D11 = Index 1 in aktuelleBits
-        const d12 = parseInt(aktuelleBits[0]) || 0
-        const d11 = parseInt(aktuelleBits[1]) || 0
-        return d12 * 2 + d11   // 0, 1, 2 oder 3
-      }
-
-      function maskTabelleAktualisieren(aktiveNummern) {
-        const tbody = document.getElementById("mask-tbody")
-        tbody.innerHTML = ""
-
-        const d12d11 = d12d11Berechnen()
-
-        for (const nr of aktiveNummern) {
-
-          // instrData-Eintrag für diese InstrNo
-          const instr = instrData.find(r => parseInt(r["InstrNo"]) === nr)
-          if (!instr) continue
-
-          const instrName = instr["InstrName"] || ""
-
-          // Aktive Masken ermitteln (Msk0-Msk5 === "1")
-          const aktiveMasken = []
-          for (let m = 0; m <= 5; m++) {
-            if ((instr["Msk" + m] || "").trim() === "1")
-              aktiveMasken.push(m)
-          }
-
-          // Keine aktive Maske → graue Zeile
-          if (aktiveMasken.length === 0) {
-            const tr = document.createElement("tr")
-            tr.className = "instr-row kein-msk"
-            tr.innerHTML =
-              `<td class="col-instrno">${nr}</td>` +
-              `<td class="col-name">${instrName}</td>` +
-              `<td class="col-msk">—</td>` +
-              S_SPALTEN.map(() => `<td class="s-leer">·</td>`).join("")
-            tbody.appendChild(tr)
-            continue
-          }
-
-          // Pro aktive Maske: passenden DigitMask-Eintrag suchen
-          for (const maskNr of aktiveMasken) {
-
-            // Suche: Mask === maskNr UND D12D11 === berechneter Wert
-            const maskEintrag = DigitMaskData.find(
-              d => d["Mask"] === maskNr && d["D12D11"] === d12d11
-            )
-
-            const tr = document.createElement("tr")
-            tr.className = "instr-row"
-
-            let zellen = `<td class="col-instrno">${nr}</td>`
-            zellen    += `<td class="col-name">${instrName}</td>`
-            zellen    += `<td class="col-msk">Msk${maskNr}</td>`
-
-            // S-Spalten: "E" = aktiv (grün), null/leer = inaktiv
-            for (const s of S_SPALTEN) {
-              const wert = maskEintrag ? maskEintrag[s] : null
-              zellen += wert === "E"
-                ? `<td class="s-aktiv">E</td>`
-                : `<td class="s-leer">·</td>`
-            }
-
-            tr.innerHTML = zellen
-            tbody.appendChild(tr)
-          }
-        }
-      }
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // ALLE ANZEIGEN AKTUALISIEREN
-      // Zentrale Funktion: wird nach jedem Bit-Klick und Zeilenklick aufgerufen
-      // ═══════════════════════════════════════════════════════════════
-
-      function allesAktualisieren() {
-        const gefundeneNummern = bitsDekodieren(aktuelleBits.join(""))
-        ledsAktualisieren(gefundeneNummern)
-        diagrammAktualisieren(gefundeneNummern)
-        maskTabelleAktualisieren(gefundeneNummern)
-
-        const infoEl = document.getElementById("current-info")
-        if (gefundeneNummern.length > 0)
-          infoEl.textContent = "InstrNo: [" + gefundeneNummern.join(", ") + "]"
-        else
-          infoEl.textContent = "Bits: " + aktuelleBits.join("") + " — keine Übereinstimmung"
-      }
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // BIT-EDITOREN
-      // ═══════════════════════════════════════════════════════════════
-
-      let aktuelleBits = []
-
-      function editorZeichnen(containerId, spalten) {
-        const container = document.getElementById(containerId)
-        container.innerHTML = ""
-
-        for (const spalte of spalten) {
-          const i = BIT_COLS.indexOf(spalte)
-
-          const col = document.createElement("div")
-          col.style.cssText = "display:flex; flex-direction:column; align-items:center; gap:2px;"
-
-          const name = document.createElement("div")
-          name.className = "bit-cell bit-label"
-          name.textContent = spalte
-
-          const cell = document.createElement("div")
-          cell.className = "bit-cell"
-          cell.dataset.val = aktuelleBits[i]
-          cell.textContent = aktuelleBits[i]
-
-          cell.addEventListener("click", () => {
-            aktuelleBits[i] = aktuelleBits[i] === "1" ? "0" : "1"
-            alleEditorenZeichnen()
-            allesAktualisieren()
-          })
-
-          col.appendChild(name)
-          col.appendChild(cell)
-          container.appendChild(col)
-        }
-      }
-
-      function alleEditorenZeichnen() {
-        editorZeichnen("bit-cells",      BIT_COLS)
-        editorZeichnen("bit-cells-src",  SRC_COLS)
-        editorZeichnen("bit-cells-dest", DEST_COLS)
-      }
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // CODE-LISTING aufbauen
-      // ═══════════════════════════════════════════════════════════════
-
-      const codeList = document.getElementById("code-list")
-      let ausgewaehlteZeile = null
-
-      for (const [idx, zeile] of codeData.entries()) {
-        const label = zeile["Label"] || zeile["label"] || ""
-        const addr  = zeile["Addr"]  || zeile["addr"]  || ""
-        const line  = zeile["Line"]  || zeile["line"]  || ""
-        const bits  = zeile["bits"]  || zeile["Bits"]  || ""
-        const reass = zeile["reass"] || zeile["Reass"] || zeile["reass2"] || ""
-
-        const div = document.createElement("div")
-        div.className = "code-row"
-        div.innerHTML =
-          `<span class="col-label">${label}</span>` +
-          `<span class="col-addr">${addr}</span>`   +
-          `<span>${line}</span>`                     +
-          `<span class="col-bits">${bits}</span>`   +
-          `<span class="col-reass">${reass}</span>`
-
-        div.addEventListener("click", () => zeileSelektion(div, bits))
-        codeList.appendChild(div)
-      }
-
-      function zeileSelektion(div, bits) {
-        if (ausgewaehlteZeile) ausgewaehlteZeile.classList.remove("selected")
-        div.classList.add("selected")
-        ausgewaehlteZeile = div
-
-        aktuelleBits = bits.split("")
-        document.getElementById("bit-editor").style.display = "block"
-        alleEditorenZeichnen()
-        allesAktualisieren()
-      }
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // BIT-DEKODIERUNG
-      // ═══════════════════════════════════════════════════════════════
-
-      function bitsDekodieren(bits) {
-        if (!bits || bits.length < 13) return []
-
-        const gefunden = []
-
-        for (const instr of instrData) {
-          const nr = parseInt(instr["InstrNo"] || "")
-          if (isNaN(nr) || nr < INSTR_MIN || nr > INSTR_MAX) continue
-
-          let passt = true
-          for (let i = 0; i < BIT_COLS.length; i++) {
-            const erwartet = (instr[BIT_COLS[i]] || "").trim()
-            if (erwartet === "") continue
-            if (bits[i] !== erwartet) { passt = false; break }
-          }
-
-          if (passt) gefunden.push(nr)
-        }
-
-        return gefunden
-      }
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // MXGRAPH: Diagramm laden
-      // ═══════════════════════════════════════════════════════════════
-
-      const container = document.getElementById("container")
-      const graph = new mxGraph(container)
-
-      graph.convertValueToString = function(cell) {
-        if (cell.value && typeof cell.value === "object" && cell.value.getAttribute)
-          return cell.value.getAttribute("label") || ""
-        return cell.value || ""
-      }
-
-      graph.setEnabled(false)
-      graph.isCellFoldable = function() { return false }
-      graph.setTooltips(false)
-      graph.setPanning(true)
-      graph.panningHandler.useLeftButtonForPanning = true
-      graph.getView().setTranslate(0, 0)
-      graph.getView().setScale(1)
-
-      const xmlDoc = mxUtils.parseXml(diagramXml)
-      const codec  = new mxCodec(xmlDoc)
-      codec.decode(xmlDoc.documentElement, graph.getModel())
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // INSTR-ZELLEN SAMMELN
-      // ═══════════════════════════════════════════════════════════════
-
-      const instrZellenMap = {}
-
-      for (const zelle of Object.values(graph.getModel().cells)) {
-        const val = zelle.value
-        if (!val || typeof val !== "object" || !val.getAttribute) continue
-
-        const instrAttr = val.getAttribute("instr")
-        if (!instrAttr || instrAttr === "") continue
-
-        for (const teil of instrAttr.split(",")) {
-          const nr = parseInt(teil.trim())
-          if (isNaN(nr)) continue
-          if (!instrZellenMap[nr]) instrZellenMap[nr] = []
-          instrZellenMap[nr].push(zelle)
-        }
-      }
-
-      console.log("instr-Nummern im Diagramm:", Object.keys(instrZellenMap))
-
-
-      // ═══════════════════════════════════════════════════════════════
-      // DIAGRAMM AKTUALISIEREN
-      // ═══════════════════════════════════════════════════════════════
-
-      function zelleEinfaerben(zelle, farbe) {
-        if (zelle.isEdge()) {
-          graph.setCellStyles(mxConstants.STYLE_STROKECOLOR, farbe, [zelle])
-        } else {
-          graph.setCellStyles(mxConstants.STYLE_FILLCOLOR,   farbe, [zelle])
-          graph.setCellStyles(mxConstants.STYLE_STROKECOLOR, farbe, [zelle])
-        }
-      }
-
-      function diagrammAktualisieren(aktiveNummern) {
-        const model = graph.getModel()
-        model.beginUpdate()
-        try {
-          for (const zellen of Object.values(instrZellenMap))
-            for (const zelle of zellen)
-              zelleEinfaerben(zelle, FARBE_INAKTIV)
-
-          for (const nr of aktiveNummern) {
-            const zellen = instrZellenMap[nr]
-            if (!zellen) continue
-            for (const zelle of zellen)
-              zelleEinfaerben(zelle, FARBE_AKTIV)
-          }
-        } finally {
-          model.endUpdate()
-        }
-      }
-
-    </script>
+    <script src="main.js"></script>
   </body>
 </html>
